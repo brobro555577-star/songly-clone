@@ -9,7 +9,7 @@ st.set_page_config(page_title="AI Песни в Подарок", page_icon="🎵
 api_key = st.secrets["OPENROUTER_API_KEY"]
 
 # Заголовок сайта
-st.title("🎵 Генератор песен-подарков")
+st.title("Генератор песен-подарков")
 st.markdown("Создай уникальную песню для близких за пару кликов!")
 
 # Основная форма
@@ -22,9 +22,8 @@ with col2:
     interests = st.text_input("Интересы (через запятую):", "рыбалка, горы")
 
 # Кнопка запуска
-if st.button("✨ Создать шедевр", type="primary"):
-    with st.spinner("🔮 Нейросеть подбирает рифмы..."):
-        # ГЕНЕРАЦИЯ СТИХА
+if st.button("Создать шедевр", type="primary"):
+    with st.spinner("Нейросеть подбирает рифмы..."):
         try:
             models_response = requests.get(
                 "https://openrouter.ai/api/v1/models", 
@@ -63,6 +62,8 @@ if st.button("✨ Создать шедевр", type="primary"):
             poem_text = ""
         
         if poem_text:
-            st.success("✅ Стих готов!")
+            st.success("Стих готов!")
             st.markdown(f"### {name}, с {occasion}!\n\n{poem_text}")
-            st.info("💡 Генерация музыки с вокалом требует плат
+            st.info("Генерация музыки с вокалом требует платного сервера. Скоро добавим!")
+        else:
+            st.error("Не удалось сгенерировать стих. Попробуй ещё раз через минуту.")
