@@ -1,5 +1,3 @@
 streamlit
 requests
-torch
-transformers
-scipy
+edge-tts
