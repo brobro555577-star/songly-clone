@@ -1,6 +1,9 @@
 import streamlit as st
 import requests
 import random
+import asyncio
+import edge_tts
+import os
 
 # Настройка страницы
 st.set_page_config(page_title="AI Песни в Подарок", page_icon="🎵", layout="centered")
@@ -8,7 +11,7 @@ st.set_page_config(page_title="AI Песни в Подарок", page_icon="🎵
 # Получаем ключ из Secrets
 api_key = st.secrets["OPENROUTER_API_KEY"]
 
-# МАСТЕР-ПРОМПТ 3.0 — максимальное качество
+# МАСТЕР-ПРОМПТ 3.0
 MASTER_PROMPT = """Ты — великий русский поэт-песенник, наследник традиций Высоцкого, Окуджавы и Визбора. Твои стихи — это песни, которые люди поют за столом и помнят всю жизнь.
 
 КРИТИЧЕСКИ ВАЖНЫЕ ПРАВИЛА (нарушение любого = провал):
@@ -142,8 +145,47 @@ if st.button("✨ Создать шедевр", type="primary"):
             if poem_text:
                 st.success(f"✅ Шедевр готов! (Модель: {used_model} — {model_cost})")
                 st.markdown(f"### {name}, с {occasion}!\n\n{poem_text}")
-                st.info("💡 Следующий шаг: добавим музыку с вокалом, как в Songly Gift!")
+                
+                # Сохраняем стих в сессию для озвучки
+                st.session_state['poem_text'] = poem_text
+                st.session_state['poem_name'] = name
+                
+                st.info("💡 Хочешь услышать стих? Нажми кнопку ниже!")
             else:
                 st.error("😔 Не удалось сгенерировать стих. Все модели временно недоступны. Попробуй через 5-10 минут.")
         except Exception as e:
             st.error(f"Ошибка подключения: {e}")
+
+# Кнопка озвучки (появляется после генерации стиха)
+if 'poem_text' in st.session_state:
+    st.markdown("---")
+    st.subheader("🔊 Озвучить стих")
+    
+    if st.button("🎙️ Озвучить стих голосом диктора", type="secondary"):
+        with st.spinner("Озвучиваю стих профессиональным голосом..."):
+            try:
+                # Асинхронная функция для TTS
+                async def generate_audio(text, output_file):
+                    # Используем мужской голос Dmitry (русский)
+                    communicate = edge_tts.Communicate(text, "ru-RU-DmitryNeural")
+                    await communicate.save(output_file)
+                
+                # Генерируем аудио
+                output_file = "poem_audio.mp3"
+                asyncio.run(generate_audio(st.session_state['poem_text'], output_file))
+                
+                # Показываем плеер
+                st.success("✅ Аудио готово!")
+                st.audio(output_file, format="audio/mp3")
+                
+                # Ссылка на скачивание
+                with open(output_file, "rb") as f:
+                    st.download_button(
+                        "📥 Скачать аудио-открытку",
+                        data=f,
+                        file_name=f"pozdravlenie_dlya_{st.session_state['poem_name']}.mp3",
+                        mime="audio/mp3"
+                    )
+                
+            except Exception as e:
+                st.error(f"Ошибка озвучки: {e}")
