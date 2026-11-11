@@ -1,14 +1,14 @@
 import streamlit as st
 import requests
+import random
 
 # Настройка страницы
 st.set_page_config(page_title="AI Песни в Подарок", page_icon="🎵", layout="centered")
 
 # Получаем ключ из Secrets
 api_key = st.secrets["OPENROUTER_API_KEY"]
-model_name = "qwen/qwen-2.5-72b-instruct:free"
 
-# МАСТЕР-ПРОМПТ: задаёт ИИ роль великого поэта
+# МАСТЕР-ПРОМПТ
 MASTER_PROMPT = """Ты — величайший поэт-песенник современности, сочетающий мастерство классиков (Пушкин, Есенин, Высоцкий) с современным языком. Твои стихи публикуются в лучших журналах, их поют известные артисты.
 
 ПРАВИЛА ТВОЕГО МАСТЕРСТВА:
@@ -38,27 +38,47 @@ with col2:
 if st.button("✨ Создать шедевр", type="primary"):
     with st.spinner("Великий поэт сочиняет шедевр..."):
         try:
-            response = requests.post(
-                url="https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": model_name,
-                    "messages": [
-                        {"role": "system", "content": MASTER_PROMPT},
-                        {"role": "user", "content": f"Напиши стих-поздравление с {occasion.lower()} для человека по имени {name}, который увлекается: {interests}."}
-                    ]
-                },
-                timeout=30
+            # Получаем список бесплатных моделей
+            models_response = requests.get(
+                "https://openrouter.ai/api/v1/models", 
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=10
             )
             
-            if response.status_code == 200:
-                data = response.json()
-                poem_text = data["choices"][0]["message"]["content"]
+            poem_text = ""
+            if models_response.status_code == 200:
+                free_models = [m["id"] for m in models_response.json()["data"] if ":free" in m["id"]]
+                random.shuffle(free_models)
                 
-                st.success("✅ Шедевр готов!")
+                # Пробуем первые 10 моделей
+                for model in free_models[:10]:
+                    try:
+                        response = requests.post(
+                            url="https://openrouter.ai/api/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                            json={
+                                "model": model,
+                                "messages": [
+                                    {"role": "system", "content": MASTER_PROMPT},
+                                    {"role": "user", "content": f"Напиши стих-поздравление с {occasion.lower()} для человека по имени {name}, который увлекается: {interests}."}
+                                ]
+                            },
+                            timeout=30
+                        )
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            if "choices" in data and len(data["choices"]) > 0:
+                                poem_text = data["choices"][0]["message"]["content"]
+                                st.success(f"✅ Шедевр готов! (Модель: {model})")
+                                break
+                    except:
+                        continue
+            
+            if poem_text:
                 st.markdown(f"### {name}, с {occasion}!\n\n{poem_text}")
                 st.info("💡 Следующий шаг: добавим музыку с вокалом, как в Songly Gift!")
             else:
-                st.error(f"Ошибка: {response.status_code}. Модель временно перегружена — попробуй через минуту.")
+                st.error("😔 Не удалось сгенерировать стих. Все бесплатные модели временно перегружены. Попробуй через 5-10 минут.")
         except Exception as e:
             st.error(f"Ошибка подключения: {e}")
